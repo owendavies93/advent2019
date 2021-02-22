@@ -5,6 +5,7 @@ import annotation.tailrec
 object Intcode {
 
     type PosMap = Map[Int, Int]
+    type PModes = (Int, Int, Int)
 
     def run(input: String, overrides: PosMap = Map.empty): PosMap = {
         val posmap = parseInput(input)
@@ -23,6 +24,13 @@ object Intcode {
         }
 
         step(0, withOverrides)
+    }
+
+    def parseOpCode(opCode: Int): (Int, PModes) = {
+        val op = opCode % 100
+        val modes = "%03d".format(opCode / 100)
+                          .map(_.toInt - 48)
+        (op, (modes(2), modes(1), modes(0)))
     }
 
     def op

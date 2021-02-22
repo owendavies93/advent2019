@@ -2,7 +2,7 @@ package advent2019
 
 import org.scalatest.funsuite.AnyFunSuite
 
-class IncodeSpec extends AnyFunSuite {
+class IntcodeSpec extends AnyFunSuite {
 
     test("Intcode: run") {
         var input = "1,0,0,0,99"
@@ -27,6 +27,25 @@ class IncodeSpec extends AnyFunSuite {
 
         assertResult(30) {
             Intcode.run(input)(0)
+        }
+    }
+
+    test("Intcode: parseOpCode") {
+        var (op, modes) = Intcode.parseOpCode(1002)
+
+        assert(op == 2)
+
+        assertResult((0, 1, 0)) {
+            modes
+        }
+
+        op    = Intcode.parseOpCode(1)._1
+        modes = Intcode.parseOpCode(1)._2
+
+        assert(op == 1)
+
+        assertResult((0, 0, 0)) {
+            modes
         }
     }
 }
