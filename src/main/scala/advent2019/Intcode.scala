@@ -8,23 +8,37 @@ object Intcode {
     type PosMap = Map[Int, Int]
     type PModes = (Int, Int, Int)
 
-    def run(input: String, overrides: PosMap = Map.empty): PosMap = {
-        val posmap = parseInput(input)
+    case class State(pm: PosMap, in: List[Int]) {
+        def read = in match {
+            case head :: tail => (head, copy(in = tail))
+            case Nil          => throw new EmptyInputException
+        }
+
+        def set(r: Int, v: Int) = copy(pm = pm.updated(r, v))
+    }
+
+    def run
+        ( program: String
+        , input: List[Int] = List.empty
+        , overrides: PosMap = Map.empty)
+        : PosMap = {
+
+        val posmap = parseInput(program)
         val withOverrides = overrides.keys.foldLeft(posmap)((next, k) =>
             next.updated(k, overrides(k))
         )
 
         @tailrec
-        def step(ptr: Int, pm: PosMap): PosMap = {
-            val (opCode, pmodes) = parseOpCode(pm(ptr))
-            if (opCode == 99) pm
+        def step(ptr: Int, st: State): PosMap = {
+            val (opCode, pmodes) = parseOpCode(st.pm(ptr))
+            if (opCode == 99) st.pm
             else {
-                val (ptr_, pm_) = op(opCode, ptr, pmodes, pm)
-                step(ptr_, pm_)
+                val (ptr_, st_) = op(opCode, ptr, pmodes, st)
+                step(ptr_, st_)
             }
         }
 
-        step(0, withOverrides)
+        step(0, State(withOverrides, input))
     }
 
     def parseOpCode(opCode: Int): (Int, PModes) = {
@@ -38,72 +52,64 @@ object Intcode {
         ( opCode: Int
         , ptr: Int
         , pmodes: PModes
-        , posMap: PosMap)
-        : (Int, PosMap) = opCode match {
+        , state: State)
+        : (Int, State) = opCode match {
 
         // Addition
         case 1 =>
-            val left  = modeVal(pmodes._1, ptr + 1, posMap)
-            val right = modeVal(pmodes._2, ptr + 2, posMap)
-            val resP  = posMap(ptr + 3)
-            val res   = posMap.updated(resP, left + right)
-            (ptr + 4, res)
+            val left  = modeVal(pmodes._1, ptr + 1, state.pm)
+            val right = modeVal(pmodes._2, ptr + 2, state.pm)
+            val resP  = state.pm(ptr + 3)
+            (ptr + 4, state.set(resP, left + right))
 
         // Multiplication
         case 2 =>
-            val left  = modeVal(pmodes._1, ptr + 1, posMap)
-            val right = modeVal(pmodes._2, ptr + 2, posMap)
-            val resP  = posMap(ptr + 3)
-            val res   = posMap.updated(resP, left * right)
-            (ptr + 4, res)
+            val left  = modeVal(pmodes._1, ptr + 1, state.pm)
+            val right = modeVal(pmodes._2, ptr + 2, state.pm)
+            val resP  = state.pm(ptr + 3)
+            (ptr + 4, state.set(resP, left * right))
 
         // Input
         case 3 =>
-            // XXX: workaround for annoying sbt bug
-            readLine()
-            val input = readLine()
-            val resP  = posMap(ptr + 1)
-            val res   = posMap.updated(resP, input.toInt)
-            (ptr + 2, res)
+            val (input, newState) = state.read
+            val resP  = newState.pm(ptr + 1)
+            (ptr + 2, newState.set(resP, input.toInt))
 
         // Output
         case 4 =>
-            val output = modeVal(pmodes._1, ptr + 1, posMap)
+            val output = modeVal(pmodes._1, ptr + 1, state.pm)
             println(output)
-            (ptr + 2, posMap)
+            (ptr + 2, state)
 
         // Jump If True
         case 5 =>
-            val test = modeVal(pmodes._1, ptr + 1, posMap)
+            val test = modeVal(pmodes._1, ptr + 1, state.pm)
             if (test != 0) {
-                val newPtr = modeVal(pmodes._2, ptr + 2, posMap)
-                (newPtr, posMap)
-            } else (ptr + 3, posMap)
+                val newPtr = modeVal(pmodes._2, ptr + 2, state.pm)
+                (newPtr, state)
+            } else (ptr + 3, state)
 
         // Jump If False
         case 6 =>
-            val test = modeVal(pmodes._1, ptr + 1, posMap)
-            println(test)
+            val test = modeVal(pmodes._1, ptr + 1, state.pm)
             if (test == 0) {
-                val newPtr = modeVal(pmodes._2, ptr + 2, posMap)
-                (newPtr, posMap)
-            } else (ptr + 3, posMap)
+                val newPtr = modeVal(pmodes._2, ptr + 2, state.pm)
+                (newPtr, state)
+            } else (ptr + 3, state)
 
         // Less Than
         case 7 =>
-            val left  = modeVal(pmodes._1, ptr + 1, posMap)
-            val right = modeVal(pmodes._2, ptr + 2, posMap)
-            val resP  = posMap(ptr + 3)
-            val res   = posMap.updated(resP, if (left < right) 1 else 0)
-            (ptr + 4, res)
+            val left  = modeVal(pmodes._1, ptr + 1, state.pm)
+            val right = modeVal(pmodes._2, ptr + 2, state.pm)
+            val resP  = state.pm(ptr + 3)
+            (ptr + 4, state.set(resP, if (left < right) 1 else 0))
 
         // Equals
         case 8 =>
-            val left  = modeVal(pmodes._1, ptr + 1, posMap)
-            val right = modeVal(pmodes._2, ptr + 2, posMap)
-            val resP  = posMap(ptr + 3)
-            val res   = posMap.updated(resP, if (left == right) 1 else 0)
-            (ptr + 4, res)
+            val left  = modeVal(pmodes._1, ptr + 1, state.pm)
+            val right = modeVal(pmodes._2, ptr + 2, state.pm)
+            val resP  = state.pm(ptr + 3)
+            (ptr + 4, state.set(resP, if (left == right) 1 else 0))
 
         case _ => throw NoSuchOpCodeException(opCode.toString)
     }
@@ -125,6 +131,11 @@ object Intcode {
         str.split(",").map(_.toInt).toArray
 
     final case class NoSuchOpCodeException
+        ( private val message: String = ""
+        , private val cause: Throwable = None.orNull
+        ) extends Exception(message, cause)
+
+    final case class EmptyInputException
         ( private val message: String = ""
         , private val cause: Throwable = None.orNull
         ) extends Exception(message, cause)
