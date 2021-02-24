@@ -8,11 +8,24 @@ object Intcode {
     type PosMap = Map[Int, Int]
     type PModes = (Int, Int, Int)
 
-    case class State(pm: PosMap, in: List[Int], out: List[Int]) {
+    case class State
+        ( pm: PosMap
+        , in: List[Int]
+        , out: List[Int] = List()
+        , ptr: Int = 0
+        , waiting: Boolean = false
+        , halted: Boolean = false) {
+
+        def halt = copy(halted = true)
+
+        def move(p: Int) = copy(ptr = p)
+
         def read = in match {
-            case head :: tail => (head, copy(in = tail))
-            case Nil          => throw new EmptyInputException
+            case head :: tail => (Some(head), copy(in = tail))
+            case Nil          => (None, copy(waiting = true))
         }
+
+        def restart(input: List[Int]) = copy(waiting = false, in = input)
 
         def set(r: Int, v: Int) = copy(pm = pm.updated(r, v))
 
@@ -23,24 +36,24 @@ object Intcode {
         ( program: String
         , input: List[Int] = List.empty
         , overrides: PosMap = Map.empty)
-        : (PosMap, List[Int])= {
+        : State = {
 
         val posmap = parseInput(program)
         val withOverrides = overrides.keys.foldLeft(posmap)((next, k) =>
             next.updated(k, overrides(k))
         )
 
-        @tailrec
-        def step(ptr: Int, st: State): (PosMap, List[Int]) = {
-            val (opCode, pmodes) = parseOpCode(st.pm(ptr))
-            if (opCode == 99) (st.pm, st.out)
-            else {
-                val (ptr_, st_) = op(opCode, ptr, pmodes, st)
-                step(ptr_, st_)
-            }
-        }
+        step(State(withOverrides, input, List()))
+    }
 
-        step(0, State(withOverrides, input, List()))
+    @tailrec
+    def step(st: State): State = {
+        if (st.waiting) st
+        else {
+            val (opCode, pmodes) = parseOpCode(st.pm(st.ptr))
+            if (opCode == 99) st.halt
+            else step(op(opCode, pmodes, st))
+        }
     }
 
     def parseOpCode(opCode: Int): (Int, PModes) = {
@@ -52,65 +65,67 @@ object Intcode {
 
     def op
         ( opCode: Int
-        , ptr: Int
         , pmodes: PModes
         , state: State)
-        : (Int, State) = opCode match {
+        : State = opCode match {
 
         // Addition
         case 1 =>
-            val left  = modeVal(pmodes._1, ptr + 1, state.pm)
-            val right = modeVal(pmodes._2, ptr + 2, state.pm)
-            val resP  = state.pm(ptr + 3)
-            (ptr + 4, state.set(resP, left + right))
+            val left  = modeVal(pmodes._1, state.ptr + 1, state.pm)
+            val right = modeVal(pmodes._2, state.ptr + 2, state.pm)
+            val resP  = state.pm(state.ptr + 3)
+            state.set(resP, left + right).move(state.ptr + 4)
 
         // Multiplication
         case 2 =>
-            val left  = modeVal(pmodes._1, ptr + 1, state.pm)
-            val right = modeVal(pmodes._2, ptr + 2, state.pm)
-            val resP  = state.pm(ptr + 3)
-            (ptr + 4, state.set(resP, left * right))
+            val left  = modeVal(pmodes._1, state.ptr + 1, state.pm)
+            val right = modeVal(pmodes._2, state.ptr + 2, state.pm)
+            val resP  = state.pm(state.ptr + 3)
+            state.set(resP, left * right).move(state.ptr + 4)
 
         // Input
         case 3 =>
-            val (input, newState) = state.read
-            val resP  = newState.pm(ptr + 1)
-            (ptr + 2, newState.set(resP, input.toInt))
+            state.read match {
+                case (None, s)    => s
+                case (Some(i), s) =>
+                    val resP = s.pm(s.ptr + 1)
+                    s.set(resP, i.toInt).move(s.ptr + 2)
+            }
 
         // Output
         case 4 =>
-            val output = modeVal(pmodes._1, ptr + 1, state.pm)
-            (ptr + 2, state.write(output))
+            val output = modeVal(pmodes._1, state.ptr + 1, state.pm)
+            state.write(output).move(state.ptr + 2)
 
         // Jump If True
         case 5 =>
-            val test = modeVal(pmodes._1, ptr + 1, state.pm)
+            val test = modeVal(pmodes._1, state.ptr + 1, state.pm)
             if (test != 0) {
-                val newPtr = modeVal(pmodes._2, ptr + 2, state.pm)
-                (newPtr, state)
-            } else (ptr + 3, state)
+                val newPtr = modeVal(pmodes._2, state.ptr + 2, state.pm)
+                state.move(newPtr)
+            } else state.move(state.ptr + 3)
 
         // Jump If False
         case 6 =>
-            val test = modeVal(pmodes._1, ptr + 1, state.pm)
+            val test = modeVal(pmodes._1, state.ptr + 1, state.pm)
             if (test == 0) {
-                val newPtr = modeVal(pmodes._2, ptr + 2, state.pm)
-                (newPtr, state)
-            } else (ptr + 3, state)
+                val newPtr = modeVal(pmodes._2, state.ptr + 2, state.pm)
+                state.move(newPtr)
+            } else state.move(state.ptr + 3)
 
         // Less Than
         case 7 =>
-            val left  = modeVal(pmodes._1, ptr + 1, state.pm)
-            val right = modeVal(pmodes._2, ptr + 2, state.pm)
-            val resP  = state.pm(ptr + 3)
-            (ptr + 4, state.set(resP, if (left < right) 1 else 0))
+            val left  = modeVal(pmodes._1, state.ptr + 1, state.pm)
+            val right = modeVal(pmodes._2, state.ptr + 2, state.pm)
+            val resP  = state.pm(state.ptr + 3)
+            state.set(resP, if (left < right) 1 else 0).move(state.ptr + 4)
 
         // Equals
         case 8 =>
-            val left  = modeVal(pmodes._1, ptr + 1, state.pm)
-            val right = modeVal(pmodes._2, ptr + 2, state.pm)
-            val resP  = state.pm(ptr + 3)
-            (ptr + 4, state.set(resP, if (left == right) 1 else 0))
+            val left  = modeVal(pmodes._1, state.ptr + 1, state.pm)
+            val right = modeVal(pmodes._2, state.ptr + 2, state.pm)
+            val resP  = state.pm(state.ptr + 3)
+            state.set(resP, if (left == right) 1 else 0).move(state.ptr + 4)
 
         case _ => throw NoSuchOpCodeException(opCode.toString)
     }
