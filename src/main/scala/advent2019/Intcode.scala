@@ -8,20 +8,22 @@ object Intcode {
     type PosMap = Map[Int, Int]
     type PModes = (Int, Int, Int)
 
-    case class State(pm: PosMap, in: List[Int]) {
+    case class State(pm: PosMap, in: List[Int], out: List[Int]) {
         def read = in match {
             case head :: tail => (head, copy(in = tail))
             case Nil          => throw new EmptyInputException
         }
 
         def set(r: Int, v: Int) = copy(pm = pm.updated(r, v))
+
+        def write(i: Int) = copy(out = out :+ i)
     }
 
     def run
         ( program: String
         , input: List[Int] = List.empty
         , overrides: PosMap = Map.empty)
-        : PosMap = {
+        : (PosMap, List[Int])= {
 
         val posmap = parseInput(program)
         val withOverrides = overrides.keys.foldLeft(posmap)((next, k) =>
@@ -29,16 +31,16 @@ object Intcode {
         )
 
         @tailrec
-        def step(ptr: Int, st: State): PosMap = {
+        def step(ptr: Int, st: State): (PosMap, List[Int]) = {
             val (opCode, pmodes) = parseOpCode(st.pm(ptr))
-            if (opCode == 99) st.pm
+            if (opCode == 99) (st.pm, st.out)
             else {
                 val (ptr_, st_) = op(opCode, ptr, pmodes, st)
                 step(ptr_, st_)
             }
         }
 
-        step(0, State(withOverrides, input))
+        step(0, State(withOverrides, input, List()))
     }
 
     def parseOpCode(opCode: Int): (Int, PModes) = {
@@ -78,8 +80,7 @@ object Intcode {
         // Output
         case 4 =>
             val output = modeVal(pmodes._1, ptr + 1, state.pm)
-            println(output)
-            (ptr + 2, state)
+            (ptr + 2, state.write(output))
 
         // Jump If True
         case 5 =>
