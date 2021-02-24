@@ -46,6 +46,16 @@ object Intcode {
         step(State(withOverrides, input, List()))
     }
 
+    def restart
+        ( program: String
+        , state: State
+        , input: List[Int] = List.empty)
+        : State = {
+
+        val posmap = parseInput(program)
+        step(state.restart(input))
+    }
+
     @tailrec
     def step(st: State): State = {
         if (st.waiting) st
