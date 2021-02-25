@@ -14,7 +14,7 @@ object Day7 {
 
     def part1(input: String) =
         List(0, 1, 2, 3, 4).permutations.map(
-            _.foldLeft(0)((next, i) =>
+            _.foldLeft(0L)((next, i) =>
                 Intcode.run(input, List(i, next)).out(0)
             )
         ).max
@@ -24,7 +24,7 @@ object Day7 {
             feedbackLoop(input, settings)
         ).max
 
-    def feedbackLoop(input: String, settings: List[Int]): Int = {
+    def feedbackLoop(input: String, settings: List[Int]): Long = {
         val a = Intcode.run(input, List(settings(0), 0))
         val b = Intcode.run(input, settings(1) +: a.out)
         val c = Intcode.run(input, settings(2) +: b.out)
@@ -33,7 +33,7 @@ object Day7 {
         val initialStates = List(a, b, c, d, e)
 
         @tailrec
-        def loop(states: List[Intcode.State]): Int = {
+        def loop(states: List[Intcode.State]): Long = {
             if (states.exists(_.halted)) states.last.out(0)
             else {
                 // We need to define the loop from last to first separately,

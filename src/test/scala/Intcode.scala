@@ -99,5 +99,19 @@ class IntcodeSpec extends AnyFunSuite {
             Intcode.run(input).out(0)
         }
     }
+
+    test("Incode: large numbers") {
+        var input = "1102,34915192,34915192,7,4,7,99,0"
+
+        assertResult(1219070632396864L) {
+            Intcode.run(input).out(0)
+        }
+
+        input = "104,1125899906842624,99"
+
+        assertResult(1125899906842624L) {
+            Intcode.run(input).out(0)
+        }
+    }
 }
 

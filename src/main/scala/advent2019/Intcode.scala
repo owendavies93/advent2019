@@ -5,13 +5,13 @@ import scala.io.StdIn.readLine
 
 object Intcode {
 
-    type PosMap = Map[Int, Int]
+    type PosMap = Map[Long, Long]
     type PModes = (Int, Int, Int)
 
     case class State
         ( pm:      PosMap
-        , in:      List[Int]
-        , out:     List[Int] = List()
+        , in:      List[Long]
+        , out:     List[Long] = List()
         , ptr:     Int       = 0
         , base:    Int       = 0
         , waiting: Boolean   = false
@@ -26,26 +26,26 @@ object Intcode {
             case Nil          => (None, copy(waiting = true))
         }
 
-        def restart(input: List[Int]) =
+        def restart(input: List[Long]) =
             copy(waiting = false, in = input, out = Nil)
 
-        def set(r: Int, v: Int) = copy(pm = pm.updated(r, v))
+        def set(r: Long, v: Long) = copy(pm = pm.updated(r, v))
 
         def setBase(b: Int) = copy(base = base + b)
 
-        def write(i: Int) = copy(out = out :+ i)
+        def write(i: Long) = copy(out = out :+ i)
     }
 
     def run
         ( program: String
-        , input: List[Int] = List.empty
+        , input: List[Long] = List.empty
         , overrides: PosMap = Map.empty)
         : State = {
 
         val posmap = parseInput(program)
         val withOverrides = overrides.keys.foldLeft(posmap)((next, k) =>
             next.updated(k, overrides(k))
-        )
+        ).withDefaultValue(0L)
 
         step(State(withOverrides, input, List()))
     }
@@ -53,7 +53,7 @@ object Intcode {
     def restart
         ( program: String
         , state: State
-        , input: List[Int] = List.empty)
+        , input: List[Long] = List.empty)
         : State = {
 
         val posmap = parseInput(program)
@@ -70,8 +70,8 @@ object Intcode {
         }
     }
 
-    def parseOpCode(opCode: Int): (Int, PModes) = {
-        val op = opCode % 100
+    def parseOpCode(opCode: Long): (Int, PModes) = {
+        val op = (opCode % 100).toInt
         val modes = "%03d".format(opCode / 100)
                           .map(_.toInt - 48)
         (op, (modes(2), modes(1), modes(0)))
@@ -103,7 +103,7 @@ object Intcode {
                 case (None, s)    => s
                 case (Some(i), s) =>
                     val resP = s.pm(s.ptr + 1)
-                    s.set(resP, i.toInt).move(s.ptr + 2)
+                    s.set(resP, i.toLong).move(s.ptr + 2)
             }
 
         // Output
@@ -116,7 +116,7 @@ object Intcode {
             val test = modeVal(pmodes._1, st.ptr + 1, st.pm, st.base)
             if (test != 0) {
                 val newPtr = modeVal(pmodes._2, st.ptr + 2, st.pm, st.base)
-                st.move(newPtr)
+                st.move(newPtr.toInt)
             } else st.move(st.ptr + 3)
 
         // Jump If False
@@ -124,7 +124,7 @@ object Intcode {
             val test = modeVal(pmodes._1, st.ptr + 1, st.pm, st.base)
             if (test == 0) {
                 val newPtr = modeVal(pmodes._2, st.ptr + 2, st.pm, st.base)
-                st.move(newPtr)
+                st.move(newPtr.toInt)
             } else st.move(st.ptr + 3)
 
         // Less Than
@@ -144,12 +144,12 @@ object Intcode {
         // Adjust Base
         case 9 =>
             val base = modeVal(pmodes._1, st.ptr + 1, st.pm, st.base)
-            st.setBase(base).move(st.ptr + 2)
+            st.setBase(base.toInt).move(st.ptr + 2)
 
         case _ => throw NoSuchOpCodeException(opCode.toString)
     }
 
-    def modeVal(mode: Int, posVal: Int, posMap: PosMap, base: Int) =
+    def modeVal(mode: Int, posVal: Long, posMap: PosMap, base: Int) =
         mode match {
             // Position Mode
             case 0 => posMap(posMap(posVal))
@@ -161,13 +161,13 @@ object Intcode {
         }
 
     def parseInput(input: String): PosMap =
-        strToIntArray(input)
+        strToLongArray(input)
             .zipWithIndex
-            .map { case (p, i) => i -> p }
+            .map { case (p, i) => i.toLong -> p }
             .toMap
 
-    private def strToIntArray(str: String) =
-        str.split(",").map(_.toInt).toArray
+    private def strToLongArray(str: String) =
+        str.split(",").map(_.toLong).toArray
 
     final case class NoSuchOpCodeException
         ( private val message: String = ""
