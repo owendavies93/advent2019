@@ -25,7 +25,8 @@ object Intcode {
             case Nil          => (None, copy(waiting = true))
         }
 
-        def restart(input: List[Int]) = copy(waiting = false, in = input)
+        def restart(input: List[Int]) =
+            copy(waiting = false, in = input, out = Nil)
 
         def set(r: Int, v: Int) = copy(pm = pm.updated(r, v))
 
