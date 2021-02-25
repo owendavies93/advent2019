@@ -72,6 +72,32 @@ class IntcodeSpec extends AnyFunSuite {
 
     test("Intcode: jump") {
         var input = "3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9"
+
+        assertResult(0) {
+            Intcode.run(input, List(0)).out(0)
+        }
+
+        assertResult(1) {
+            Intcode.run(input, List(10)).out(0)
+        }
+
+        input = "3,3,1105,-1,9,1101,0,0,12,4,12,99,1"
+
+        assertResult(0) {
+            Intcode.run(input, List(0)).out(0)
+        }
+
+        assertResult(1) {
+            Intcode.run(input, List(10)).out(0)
+        }
+    }
+
+    test("Intcode: relative mode") {
+        val input = "109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99"
+
+        assertResult(109) {
+            Intcode.run(input).out(0)
+        }
     }
 }
 

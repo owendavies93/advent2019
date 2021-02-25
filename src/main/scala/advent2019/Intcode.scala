@@ -9,12 +9,13 @@ object Intcode {
     type PModes = (Int, Int, Int)
 
     case class State
-        ( pm: PosMap
-        , in: List[Int]
-        , out: List[Int] = List()
-        , ptr: Int = 0
-        , waiting: Boolean = false
-        , halted: Boolean = false) {
+        ( pm:      PosMap
+        , in:      List[Int]
+        , out:     List[Int] = List()
+        , ptr:     Int       = 0
+        , base:    Int       = 0
+        , waiting: Boolean   = false
+        , halted:  Boolean   = false) {
 
         def halt = copy(halted = true)
 
@@ -29,6 +30,8 @@ object Intcode {
             copy(waiting = false, in = input, out = Nil)
 
         def set(r: Int, v: Int) = copy(pm = pm.updated(r, v))
+
+        def setBase(b: Int) = copy(base = base + b)
 
         def write(i: Int) = copy(out = out :+ i)
     }
@@ -77,26 +80,26 @@ object Intcode {
     def op
         ( opCode: Int
         , pmodes: PModes
-        , state: State)
+        , st:     State)
         : State = opCode match {
 
         // Addition
         case 1 =>
-            val left  = modeVal(pmodes._1, state.ptr + 1, state.pm)
-            val right = modeVal(pmodes._2, state.ptr + 2, state.pm)
-            val resP  = state.pm(state.ptr + 3)
-            state.set(resP, left + right).move(state.ptr + 4)
+            val left  = modeVal(pmodes._1, st.ptr + 1, st.pm, st.base)
+            val right = modeVal(pmodes._2, st.ptr + 2, st.pm, st.base)
+            val resP  = st.pm(st.ptr + 3)
+            st.set(resP, left + right).move(st.ptr + 4)
 
         // Multiplication
         case 2 =>
-            val left  = modeVal(pmodes._1, state.ptr + 1, state.pm)
-            val right = modeVal(pmodes._2, state.ptr + 2, state.pm)
-            val resP  = state.pm(state.ptr + 3)
-            state.set(resP, left * right).move(state.ptr + 4)
+            val left  = modeVal(pmodes._1, st.ptr + 1, st.pm, st.base)
+            val right = modeVal(pmodes._2, st.ptr + 2, st.pm, st.base)
+            val resP  = st.pm(st.ptr + 3)
+            st.set(resP, left * right).move(st.ptr + 4)
 
         // Input
         case 3 =>
-            state.read match {
+            st.read match {
                 case (None, s)    => s
                 case (Some(i), s) =>
                     val resP = s.pm(s.ptr + 1)
@@ -105,48 +108,57 @@ object Intcode {
 
         // Output
         case 4 =>
-            val output = modeVal(pmodes._1, state.ptr + 1, state.pm)
-            state.write(output).move(state.ptr + 2)
+            val output = modeVal(pmodes._1, st.ptr + 1, st.pm, st.base)
+            st.write(output).move(st.ptr + 2)
 
         // Jump If True
         case 5 =>
-            val test = modeVal(pmodes._1, state.ptr + 1, state.pm)
+            val test = modeVal(pmodes._1, st.ptr + 1, st.pm, st.base)
             if (test != 0) {
-                val newPtr = modeVal(pmodes._2, state.ptr + 2, state.pm)
-                state.move(newPtr)
-            } else state.move(state.ptr + 3)
+                val newPtr = modeVal(pmodes._2, st.ptr + 2, st.pm, st.base)
+                st.move(newPtr)
+            } else st.move(st.ptr + 3)
 
         // Jump If False
         case 6 =>
-            val test = modeVal(pmodes._1, state.ptr + 1, state.pm)
+            val test = modeVal(pmodes._1, st.ptr + 1, st.pm, st.base)
             if (test == 0) {
-                val newPtr = modeVal(pmodes._2, state.ptr + 2, state.pm)
-                state.move(newPtr)
-            } else state.move(state.ptr + 3)
+                val newPtr = modeVal(pmodes._2, st.ptr + 2, st.pm, st.base)
+                st.move(newPtr)
+            } else st.move(st.ptr + 3)
 
         // Less Than
         case 7 =>
-            val left  = modeVal(pmodes._1, state.ptr + 1, state.pm)
-            val right = modeVal(pmodes._2, state.ptr + 2, state.pm)
-            val resP  = state.pm(state.ptr + 3)
-            state.set(resP, if (left < right) 1 else 0).move(state.ptr + 4)
+            val left  = modeVal(pmodes._1, st.ptr + 1, st.pm, st.base)
+            val right = modeVal(pmodes._2, st.ptr + 2, st.pm, st.base)
+            val resP  = st.pm(st.ptr + 3)
+            st.set(resP, if (left < right) 1 else 0).move(st.ptr + 4)
 
         // Equals
         case 8 =>
-            val left  = modeVal(pmodes._1, state.ptr + 1, state.pm)
-            val right = modeVal(pmodes._2, state.ptr + 2, state.pm)
-            val resP  = state.pm(state.ptr + 3)
-            state.set(resP, if (left == right) 1 else 0).move(state.ptr + 4)
+            val left  = modeVal(pmodes._1, st.ptr + 1, st.pm, st.base)
+            val right = modeVal(pmodes._2, st.ptr + 2, st.pm, st.base)
+            val resP  = st.pm(st.ptr + 3)
+            st.set(resP, if (left == right) 1 else 0).move(st.ptr + 4)
+
+        // Adjust Base
+        case 9 =>
+            val base = modeVal(pmodes._1, st.ptr + 1, st.pm, st.base)
+            st.setBase(base).move(st.ptr + 2)
 
         case _ => throw NoSuchOpCodeException(opCode.toString)
     }
 
-    def modeVal(mode: Int, posVal: Int, posMap: PosMap) =
-        // Position Mode
-        if (mode == 0) posMap(posMap(posVal))
-        // Immeadiate Mode
-        else if (mode == 1) posMap(posVal)
-        else throw NoSuchOpCodeException("Impossible mode: " + mode)
+    def modeVal(mode: Int, posVal: Int, posMap: PosMap, base: Int) =
+        mode match {
+            // Position Mode
+            case 0 => posMap(posMap(posVal))
+            // Immeadiate Mode
+            case 1 => posMap(posVal)
+            // Relative Mode
+            case 2 => posMap(base + posMap(posVal))
+            case _ => throw NoSuchOpCodeException("Impossible mode: " + mode)
+        }
 
     def parseInput(input: String): PosMap =
         strToIntArray(input)
