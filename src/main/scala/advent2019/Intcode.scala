@@ -87,14 +87,14 @@ object Intcode {
         case 1 =>
             val left  = modeVal(pmodes._1, st.ptr + 1, st.pm, st.base)
             val right = modeVal(pmodes._2, st.ptr + 2, st.pm, st.base)
-            val resP  = st.pm(st.ptr + 3)
+            val resP  = modeIndex(pmodes._3, st.ptr + 3, st.pm, st.base)
             st.set(resP, left + right).move(st.ptr + 4)
 
         // Multiplication
         case 2 =>
             val left  = modeVal(pmodes._1, st.ptr + 1, st.pm, st.base)
             val right = modeVal(pmodes._2, st.ptr + 2, st.pm, st.base)
-            val resP  = st.pm(st.ptr + 3)
+            val resP  = modeIndex(pmodes._3, st.ptr + 3, st.pm, st.base)
             st.set(resP, left * right).move(st.ptr + 4)
 
         // Input
@@ -102,7 +102,7 @@ object Intcode {
             st.read match {
                 case (None, s)    => s
                 case (Some(i), s) =>
-                    val resP = s.pm(s.ptr + 1)
+                    val resP = modeIndex(pmodes._1, s.ptr + 1, st.pm, st.base)
                     s.set(resP, i.toLong).move(s.ptr + 2)
             }
 
@@ -131,14 +131,14 @@ object Intcode {
         case 7 =>
             val left  = modeVal(pmodes._1, st.ptr + 1, st.pm, st.base)
             val right = modeVal(pmodes._2, st.ptr + 2, st.pm, st.base)
-            val resP  = st.pm(st.ptr + 3)
+            val resP  = modeIndex(pmodes._3, st.ptr + 3, st.pm, st.base)
             st.set(resP, if (left < right) 1 else 0).move(st.ptr + 4)
 
         // Equals
         case 8 =>
             val left  = modeVal(pmodes._1, st.ptr + 1, st.pm, st.base)
             val right = modeVal(pmodes._2, st.ptr + 2, st.pm, st.base)
-            val resP  = st.pm(st.ptr + 3)
+            val resP  = modeIndex(pmodes._3, st.ptr + 3, st.pm, st.base)
             st.set(resP, if (left == right) 1 else 0).move(st.ptr + 4)
 
         // Adjust Base
@@ -150,13 +150,16 @@ object Intcode {
     }
 
     def modeVal(mode: Int, posVal: Long, posMap: PosMap, base: Int) =
+        posMap(modeIndex(mode, posVal, posMap, base))
+
+    def modeIndex(mode: Int, index: Long, posMap: PosMap, base: Int) =
         mode match {
             // Position Mode
-            case 0 => posMap(posMap(posVal))
+            case 0 => posMap(index)
             // Immeadiate Mode
-            case 1 => posMap(posVal)
+            case 1 => index
             // Relative Mode
-            case 2 => posMap(base + posMap(posVal))
+            case 2 => base + posMap(index)
             case _ => throw NoSuchOpCodeException("Impossible mode: " + mode)
         }
 
