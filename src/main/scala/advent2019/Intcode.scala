@@ -50,13 +50,7 @@ object Intcode {
         step(State(withOverrides, input, List()))
     }
 
-    def restart
-        ( program: String
-        , state: State
-        , input: List[Long] = List.empty)
-        : State = {
-
-        val posmap = parseInput(program)
+    def restart(state: State, input: List[Long] = List.empty): State = {
         step(state.restart(input))
     }
 

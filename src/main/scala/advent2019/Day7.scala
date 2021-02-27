@@ -38,9 +38,9 @@ object Day7 {
             else {
                 // We need to define the loop from last to first separately,
                 // then we can fold through the rest
-                val a_ = Intcode.restart(input, states.head, states.last.out)
+                val a_ = Intcode.restart(states.head, states.last.out)
                 val states_ = states.tail.foldLeft(List(a_))((next, state) => {
-                    next :+ Intcode.restart(input, state, next.last.out)
+                    next :+ Intcode.restart(state, next.last.out)
                 })
                 loop(states_)
             }
