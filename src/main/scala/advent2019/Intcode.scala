@@ -50,9 +50,8 @@ object Intcode {
         step(State(withOverrides, input, List()))
     }
 
-    def restart(state: State, input: List[Long] = List.empty): State = {
+    def restart(state: State, input: List[Long] = List.empty) =
         step(state.restart(input))
-    }
 
     @tailrec
     def step(st: State): State = {
