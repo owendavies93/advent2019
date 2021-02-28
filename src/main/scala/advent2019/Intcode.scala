@@ -15,6 +15,7 @@ object Intcode {
         , ptr:     Int       = 0
         , base:    Int       = 0
         , waiting: Boolean   = false
+        , waitOO:  Boolean   = false
         , halted:  Boolean   = false) {
 
         def halt = copy(halted = true)
@@ -33,13 +34,16 @@ object Intcode {
 
         def setBase(b: Int) = copy(base = base + b)
 
-        def write(i: Long) = copy(out = out :+ i)
+        def write(i: Long) =
+            if (waitOO) copy(out = out :+ i, waiting = true)
+            else copy(out = out :+ i)
     }
 
     def run
         ( program: String
-        , input: List[Long] = List.empty
-        , overrides: PosMap = Map.empty)
+        , input: List[Long]     = List.empty
+        , overrides: PosMap     = Map.empty
+        , waitOnOutput: Boolean = false)
         : State = {
 
         val posmap = parseInput(program)
@@ -47,7 +51,10 @@ object Intcode {
             next.updated(k, overrides(k))
         ).withDefaultValue(0L)
 
-        step(State(withOverrides, input, List()))
+        val init = State(
+            withOverrides, input, List(), 0, 0, false, waitOnOutput
+        )
+        step(init)
     }
 
     def restart(state: State, input: List[Long] = List.empty) =
