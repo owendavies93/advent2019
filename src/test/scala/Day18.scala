@@ -10,7 +10,7 @@ class Day18Spec extends AnyFunSuite {
     test("Day 18: parseInput") {
         val state = Day18.parseInput(lines1)
 
-        assert(state.pos == Day18.Point(5, 1))
+        assert(state.pos == List(Day18.Point(5, 1)))
         assert(state.keyLocs.keySet.size == 2)
         assert(state.doorLocs.keySet.size == 1)
     }
@@ -24,6 +24,20 @@ class Day18Spec extends AnyFunSuite {
 
         assertResult(86) {
             Day18.findShortestPath(lines2)
+        }
+    }
+
+    test("Day 18: multiple robots") {
+        val lines3 = Problem.parseInputToList("day18-test3")
+
+        assertResult(24) {
+            Day18.findShortestPath(lines3)
+        }
+
+        val lines4 = Problem.parseInputToList("day18-test4")
+
+        assertResult(72) {
+            Day18.findShortestPath(lines4)
         }
     }
 }

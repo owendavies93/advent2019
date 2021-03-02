@@ -11,3 +11,4 @@ Run `sbt test` to run the tests, after installing
 TODO:
 
 * [ ] Improve performance of Day 16 (both parts)
+* [ ] Improve performance of Day 18 (both parts)

@@ -12,6 +12,9 @@ object Day18 {
     def main(args: Array[String]): Unit = {
         val lines = Problem.parseInputToList("day18")
         println(findShortestPath(lines))
+
+        val lines2 = Problem.parseInputToList("day18-part2")
+        println(findShortestPath(lines2))
     }
 
     // Same caveats about needless map initialisation apply here as they
@@ -33,7 +36,12 @@ object Day18 {
         endState._2
     }
 
-    case class State(grid: Grid, keyLocs: KeyMap, doorLocs: DoorMap, pos: Point) {
+    case class State
+        ( grid: Grid
+        , keyLocs: KeyMap
+        , doorLocs: DoorMap
+        , pos: List[Point]) {
+
         def getNeighbouringStates: Map[State, Int] = {
             val pointMap = Map[Point, Map[Point, Int]]()
             val pointGraph =  new WeightedUndirectedGraph[Point](pointMap) {
@@ -41,14 +49,21 @@ object Day18 {
                     p.neighbours(grid, keyLocs, doorLocs)
             }
 
-            val distances = pointGraph.traverseFrom(pos).distances
+            val distances = pos.zipWithIndex.flatMap({
+                case (p, index) =>
+                    pointGraph.traverseFrom(p).distances.map({
+                        case (p_, distance) => p_ -> (index, distance)
+                    })
+            }).toMap
 
             keyLocs.filter(kl => distances.contains(kl._1)).map {
                 case (p_, k_) =>
-                    val distance = distances(p_)
+                    val (index, distance) = distances(p_)
+
+                    val newPos   = pos.updated(index, p_)
                     val newKeys  = keyLocs - p_
                     val newDoors = doorLocs.filterNot(_._2 == k_.door)
-                    State(grid, newKeys, newDoors, p_) -> distance
+                    State(grid, newKeys, newDoors, newPos) -> distance
             }.toMap
         }
 
@@ -84,8 +99,8 @@ object Day18 {
             , y: Int
             , keys: KeyMap
             , doors: DoorMap
-            , pos: Point)
-            : (KeyMap, DoorMap, Point) = {
+            , pos: List[Point])
+            : (KeyMap, DoorMap, List[Point]) = {
 
             if (x == width - 1 && y == height - 1) (keys, doors, pos)
             else {
@@ -100,7 +115,7 @@ object Day18 {
                         x_, y_, keys, doors.updated(Point(x, y), Door(c)), pos
                     )
                     case c if c == '@' => parseObjects(
-                        x_, y_, keys, doors, Point(x, y)
+                        x_, y_, keys, doors, Point(x, y) :: pos
                     )
                     case _ => parseObjects(x_, y_, keys, doors, pos)
                 }
@@ -108,7 +123,7 @@ object Day18 {
         }
 
         val (keys, doors, pos) =
-            parseObjects(0, 0, Map.empty, Map.empty, Point(-1, -1))
+            parseObjects(0, 0, Map.empty, Map.empty, List.empty)
 
         State(grid, keys, doors, pos)
     }
