@@ -7,12 +7,33 @@ object Day17 {
     def main(args: Array[String]): Unit = {
         val program = Problem.parseInputToString("day17")
         println(part1(program))
+        part2(program)
     }
 
-    def part1(program: String) = {
+    def part1(program: String): Int = {
         val prog = Intcode.run(program).out.map(_.toInt)
         val grid = parseOutput(prog)
         sumParams(grid)
+    }
+
+    def part2(program: String): Unit = {
+        /*
+            Derived the functions for part 2 by hand after inspecting the
+            grid and tracing the best path
+        */
+        val main = "C,B,C,C,B,A,B,A,A,B\n"
+        val a    = "L,6,R,6,L,12\n"
+        val b    = "R,8,L,12,L,12,R,8\n"
+        val c    = "L,12,R,8,L,6,R,8,L,6\n"
+        val no   = "n\n"
+
+        val allInputs = List(main, a, b, c, no).map(_.map(_.toLong).toList)
+
+        val state = Intcode.run(program, List(), Map(0L -> 2L))
+        val res   = allInputs.foldLeft(state)(
+            (nextS, input) => Intcode.restart(nextS, input)
+        )
+        println(res.out.last)
     }
 
     def sumParams(g: Grid) = g.findIntersects.map(p => p.x * p.y).sum
