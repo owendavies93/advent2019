@@ -1,0 +1,9 @@
+# 4 ahead needs to not be a hole
+# 3 ahead needs to be a hole so we can land on runs like ###.##.##
+# then just jump when we're next to a hole
+NOT C J
+AND D J
+NOT A T
+OR T J
+WALK
+
