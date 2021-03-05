@@ -13,3 +13,4 @@ TODO:
 * [ ] Improve performance of Day 16 (both parts)
 * [ ] Improve performance of Day 18 (both parts)
 * [ ] Improve performance of Day 20 part 2
+* [ ] Improve style of Day 23 (both parts)
